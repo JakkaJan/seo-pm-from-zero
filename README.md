@@ -9,3 +9,6 @@
 - Лучше сделать маленький шаг, чем не сделать ничего
 
 ## Старт: 15 мая 2026
+
+## Мой сайт
+👉 [jakkajan.github.io/seo-pm-from-zero](https://jakkajan.github.io/seo-pm-from-zero/)
