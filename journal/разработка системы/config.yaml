@@ -1,0 +1,33 @@
+scanner:
+  timeout: 10
+  max_links_to_check: 20
+  user_agent: "Mozilla/5.0 (compatible; DELTA-SEO-Bot/1.0)"
+  respect_robots: false
+
+thresholds:
+  ttfb_warning_ms: 3000
+  ttfb_critical_ms: 5000
+  title_optimal_min: 30
+  title_optimal_max: 60
+  description_optimal_min: 120
+  description_optimal_max: 160
+  score_critical: 50
+  score_warning: 70
+  broken_links_critical: 3
+  score_drop_alert: 10
+
+weights:
+  status_code: 20
+  title: 15
+  description: 15
+  h1: 10
+  ttfb: 20
+  ssl: 10
+  broken_links: 10
+
+files:
+  clients_csv: "data/clients.csv"
+  audit_history_csv: "data/audit_history.csv"
+  database: "data/monitor.db"
+  log_file: "logs/audit.log"
+  report_csv: "reports/audit_report.csv"
