@@ -1,0 +1,84 @@
+import gspread
+from google.oauth2.service_account import Credentials
+import requests
+import json
+
+# Подключение к Google Forms (через Google Sheets)
+SCOPES = ['https://www.googleapis.com/auth/spreadsheets.readonly']
+CREDS = Credentials.from_service_account_file('credentials.json', scopes=SCOPES)
+gc = gspread.authorize(CREDS)
+
+# Битрикс24 webhook
+BITRIX_WEBHOOK = "https://lidereco.bitrix24.ru/rest/1/TOKEN/"
+
+def process_new_applications():
+    """
+    Парсинг Google Forms → создание сделок в Битрикс24
+    → welcome-письмо → назначение методиста
+    """
+    # Открываем таблицу ответов
+    sheet = gc.open("Регистрация на курс").worksheet("Ответы")
+    rows = sheet.get_all_records()
+    
+    for row in rows:
+        if row.get("processed") == "TRUE":
+            continue
+            
+        # Создаём сделку в Битрикс24
+        deal_data = {
+            "fields": {
+                "TITLE": f"Заявка: {row['ФИО']}",
+                "CONTACT_NAME": row["ФИО"],
+                "PHONE": [{"VALUE": row["Телефон"], "VALUE_TYPE": "WORK"}],
+                "EMAIL": [{"VALUE": row["Email"], "VALUE_TYPE": "WORK"}],
+                "SOURCE_ID": "GOOGLE_FORMS",
+                "ASSIGNED_BY_ID": get_methodist_id(row["Направление"]),
+                "UF_CRM_COURSE": row["Направление"],
+                "UF_CRM_PAYMENT_STATUS": "pending"
+            }
+        }
+        
+        response = requests.post(
+            f"{BITRIX_WEBHOOK}crm.deal.add",
+            json=deal_data
+        )
+        
+        deal_id = response.json().get("result")
+        
+        if deal_id:
+            # Отправляем welcome-письмо
+            send_welcome_email(row["Email"], row["ФИО"], deal_id)
+            
+            # Отмечаем как обработанную
+            row_index = rows.index(row) + 2
+            sheet.update_cell(row_index, sheet.find("processed").col, "TRUE")
+            
+            print(f"✅ Заявка {row['ФИО']} → сделка #{deal_id}")
+
+def get_methodist_id(direction: str) -> int:
+    """Назначение методиста по направлению"""
+    methodists = {
+        "Экология": 12,
+        "Лидерство": 15,
+        "Проектное управление": 18
+    }
+    return methodists.get(direction, 12)
+
+def send_welcome_email(email: str, name: str, deal_id: int):
+    """Отправка welcome-письма через Битрикс24"""
+    requests.post(
+        f"{BITRIX_WEBHOOK}crm.activity.add",
+        json={
+            "fields": {
+                "OWNER_TYPE_ID": "DEAL",
+                "OWNER_ID": deal_id,
+                "TYPE_ID": "EMAIL",
+                "SUBJECT": "Добро пожаловать в ЛидерЭКО!",
+                "DESCRIPTION": f"Привет, {name}! Ваша заявка принята...",
+                "COMMUNICATIONS": [{"VALUE": email}]
+            }
+        }
+    )
+
+if __name__ == "__main__":
+    process_new_applications()
